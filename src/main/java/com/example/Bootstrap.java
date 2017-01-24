@@ -5,6 +5,7 @@ import com.thoughtworks.xstream.XStream;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.http4.HttpMethods;
 import org.apache.camel.dataformat.xstream.XStreamDataFormat;
@@ -23,8 +24,8 @@ public class Bootstrap implements CommandLineRunner {
 
     @Override
     public void run(String... strings) throws Exception {
-        //curso();;
-        exemploUsandoTimer();
+        curso();;
+        //exemploUsandoTimer();
     }
 
     private void exemploUsandoTimer()throws Exception{
@@ -77,6 +78,15 @@ public class Bootstrap implements CommandLineRunner {
             @Override
             public void configure() throws Exception {
                 from("file:pedidos?delay=5s&noop=true").
+                    routeId("rota-pedidos").
+                    //multicast().
+                            //parallelProcessing().
+                                //timeout(500).
+                                    to("seda:soap").
+                                    to("seda:http");
+
+                from("seda:http").
+                    routeId("rota-http").
                     setProperty("clienteId").xpath("/pedido/pagamento/email-titular/text()").
                     setProperty("pedidoId",xpath("/pedido/id/text()")).
                     split().xpath("/pedido/itens/item").
@@ -89,10 +99,20 @@ public class Bootstrap implements CommandLineRunner {
                             setHeader(Exchange.HTTP_METHOD, HttpMethods.GET).
                             setHeader(Exchange.HTTP_QUERY,simple("ebookId=${property.ebookId}&pedidoId=${property.pedidoId}&clienteId=${property.clienteId}")).
                 to("http4://localhost:8080/webservices/ebook/item");
+
+                from("seda:soap").
+                    routeId("rota-soap").
+                    log("${body}").
+                    setBody(constant("<envelope>teste</envelope>")).
+                to("mock:soap");
             }
         });
 
         context.start();
+
+        //ProducerTemplate producer = context.createProducerTemplate();
+        //producer.sendBody("direct:soap","<pedido>...</pedido");
+
         Thread.sleep(2000);
         context.stop();
     }
