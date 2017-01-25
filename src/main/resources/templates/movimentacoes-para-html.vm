@@ -1,0 +1,16 @@
+<html xmlns:alura="http://alura.com.br">
+    <body>
+        <table>
+            <th>Valor</th>
+            <th>Data</th>
+            <th>Tipo</th>
+            #foreach($movimentacao in $movimentacoes)
+                <tr>
+                    <td>${movimentacao.valor}</td>
+                    <td>${movimentacao.data}</td>
+                    <td>${movimentacao.tipo}</td>
+                </tr>
+            #end
+        </table>
+    </body>
+</html>

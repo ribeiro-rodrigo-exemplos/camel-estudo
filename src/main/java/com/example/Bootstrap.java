@@ -26,6 +26,7 @@ public class Bootstrap implements CommandLineRunner {
     public void run(String... strings) throws Exception {
         curso();;
         //exemploUsandoTimer();
+        //xsltTeste();
     }
 
     private void exemploUsandoTimer()throws Exception{
@@ -90,11 +91,11 @@ public class Bootstrap implements CommandLineRunner {
                     setProperty("clienteId").xpath("/pedido/pagamento/email-titular/text()").
                     setProperty("pedidoId",xpath("/pedido/id/text()")).
                     split().xpath("/pedido/itens/item").
-                        log("${id}").
+                        //log("${id}").
                         filter().xpath("/item/formato[text()='EBOOK']").
                             setProperty("ebookId").xpath("/item/livro/codigo/text()").
                             marshal().xmljson().
-                            log("${body}").
+                            //log("${body}").
                             setHeader(Exchange.FILE_NAME,simple("${file:name.noext}-${header.CamelSplitIndex}.json")).
                             setHeader(Exchange.HTTP_METHOD, HttpMethods.GET).
                             setHeader(Exchange.HTTP_QUERY,simple("ebookId=${property.ebookId}&pedidoId=${property.pedidoId}&clienteId=${property.clienteId}")).
@@ -103,8 +104,12 @@ public class Bootstrap implements CommandLineRunner {
                 from("seda:soap").
                     routeId("rota-soap").
                     log("${body}").
-                    setBody(constant("<envelope>teste</envelope>")).
-                to("mock:soap");
+                    //setBody(constant("<envelope>teste</envelope>")).
+                    to("xslt:templates/pedido-para-soap.xslt").
+                    log("${body}").
+                //to("mock:soap");
+                    setHeader(Exchange.CONTENT_TYPE,constant("text/xml")).
+                to("http4://localhost:8080/webservices/financeiro");
             }
         });
 
@@ -115,6 +120,25 @@ public class Bootstrap implements CommandLineRunner {
 
         Thread.sleep(2000);
         context.stop();
+    }
+
+    private void xsltTeste() throws Exception {
+        CamelContext context = new DefaultCamelContext();
+        context.addRoutes(new RouteBuilder() {
+            @Override
+            public void configure() throws Exception {
+                from("direct:entrada").
+                    to("xslt:templates/movimentacoes-para-html.xslt").
+                    setHeader(Exchange.FILE_NAME,constant("movimentacoes.html")).
+                    log("${body}").
+                to("file:saida");
+            }
+        });
+
+        context.start();
+
+        ProducerTemplate producerTemplate = context.createProducerTemplate();
+        producerTemplate.sendBody("direct:entrada","<movimentacoes><movimentacao><valor>45.90</valor><data>11/12/2015</data><tipo>ENTRADA</tipo></movimentacao><movimentacao><valor>14.90</valor><data>12/12/2015</data><tipo>SAIDA</tipo></movimentacao></movimentacoes>");
     }
 
     public MysqlConnectionPoolDataSource criaDatasource(){
